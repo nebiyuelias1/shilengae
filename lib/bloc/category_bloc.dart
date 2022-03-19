@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:meta/meta.dart';
 
@@ -8,19 +10,26 @@ part 'category_event.dart';
 part 'category_state.dart';
 
 class CategoryBloc extends HydratedBloc<CategoryEvent, CategoryState> {
+  final BuildContext context;
   final api = Apis();
 
-  CategoryBloc() : super(const CategoryState()) {
+  CategoryBloc(this.context) : super(const CategoryState()) {
     on<CheckForChangesRequested>((event, emit) async {
+      _showSnackBarMessage('Checking version');
       emit(state.copyWith(apiVersionLoadingStatus: LoadingStatus.loading));
 
       final version = await api.getApiVersion();
-      if (version > state.apiVersion) {
+      final didChange = version > state.apiVersion;
+      _showSnackBarMessage('Did version change: $didChange');
+      if (didChange) {
         emit(state.copyWith(status: LoadingStatus.loading));
 
         final list = await api.fetchCategoriesList();
 
         emit(state.copyWith(categories: list, status: LoadingStatus.loaded));
+        _showSnackBarMessage('Fetched data remote data source.');
+      } else {
+        _showSnackBarMessage('Fetched data from cache.');
       }
 
       emit(
@@ -91,5 +100,11 @@ class CategoryBloc extends HydratedBloc<CategoryEvent, CategoryState> {
     return state.categories
         .where((element) => element.parentCategoryId == parentCategoryId)
         .toList();
+  }
+
+  void _showSnackBarMessage(String s) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(s)));
   }
 }
